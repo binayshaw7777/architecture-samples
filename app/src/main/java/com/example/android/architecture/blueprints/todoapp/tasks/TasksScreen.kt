@@ -18,6 +18,7 @@ package com.example.android.architecture.blueprints.todoapp.tasks
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +44,8 @@ import androidx.compose.material.rememberScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,12 +59,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.ExperimentalLifecycleComposeApi
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.android.architecture.blueprints.todoapp.R
+import com.example.android.architecture.blueprints.todoapp.component.BannerCarousel
 import com.example.android.architecture.blueprints.todoapp.data.Task
 import com.example.android.architecture.blueprints.todoapp.tasks.TasksFilterType.ACTIVE_TASKS
 import com.example.android.architecture.blueprints.todoapp.tasks.TasksFilterType.ALL_TASKS
 import com.example.android.architecture.blueprints.todoapp.tasks.TasksFilterType.COMPLETED_TASKS
 import com.example.android.architecture.blueprints.todoapp.util.LoadingContent
 import com.example.android.architecture.blueprints.todoapp.util.TasksTopAppBar
+import com.example.android.architecture.blueprints.todoapp.util.Util
 import com.google.accompanist.appcompattheme.AppCompatTheme
 
 @OptIn(ExperimentalLifecycleComposeApi::class)
@@ -76,6 +81,16 @@ fun TasksScreen(
     viewModel: TasksViewModel = hiltViewModel(),
     scaffoldState: ScaffoldState = rememberScaffoldState()
 ) {
+    // Use this to test for URLs
+    val bannerUrls by remember {
+        mutableStateOf(Util.getBannerUrlList())
+    }
+
+    // Use this to test for drawable resources
+    val bannerRes by remember {
+        mutableStateOf(Util.getBannerResFiles())
+    }
+
     Scaffold(
         scaffoldState = scaffoldState,
         topBar = {
@@ -88,6 +103,10 @@ fun TasksScreen(
                 onRefresh = { viewModel.refresh() }
             )
         },
+        bottomBar = {
+            // Adding it in Bottom bar because it's not a part of the main content as well as its getting behind the FAB
+            BannerCarousel(bannerImages = bannerUrls)
+        },
         modifier = modifier.fillMaxSize(),
         floatingActionButton = {
             FloatingActionButton(onClick = onAddTask) {
@@ -96,6 +115,7 @@ fun TasksScreen(
         }
     ) { paddingValues ->
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
 
         TasksContent(
             loading = uiState.isLoading,
@@ -129,6 +149,8 @@ fun TasksScreen(
     }
 }
 
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TasksContent(
     loading: Boolean,
@@ -163,6 +185,7 @@ private fun TasksContent(
             LazyColumn {
                 items(tasks) { task ->
                     TaskItem(
+                        modifier = Modifier.animateItemPlacement(),
                         task = task,
                         onTaskClick = onTaskClick,
                         onCheckedChange = { onTaskCheckedChange(task, it) }
@@ -175,6 +198,7 @@ private fun TasksContent(
 
 @Composable
 private fun TaskItem(
+    modifier: Modifier = Modifier,
     task: Task,
     onCheckedChange: (Boolean) -> Unit,
     onTaskClick: (Task) -> Unit
@@ -188,6 +212,7 @@ private fun TaskItem(
                 vertical = dimensionResource(id = R.dimen.list_item_padding),
             )
             .clickable { onTaskClick(task) }
+            .then(modifier)
     ) {
         Checkbox(
             checked = task.isCompleted,
@@ -202,7 +227,7 @@ private fun TaskItem(
             textDecoration = if (task.isCompleted) {
                 TextDecoration.LineThrough
             } else {
-                null
+                TextDecoration.None
             }
         )
     }
