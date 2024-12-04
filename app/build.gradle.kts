@@ -117,6 +117,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.timber)
     implementation(libs.androidx.test.espresso.idling.resources)
+    implementation(libs.coil.kt.compose)
+    implementation(libs.accompanist.pager)
+    implementation(libs.accompanist.pager.indicators)
 
     // Architecture Components
     implementation(libs.room.runtime)

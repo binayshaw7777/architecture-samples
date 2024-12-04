@@ -18,17 +18,22 @@ package com.example.android.architecture.blueprints.todoapp.tasks
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Checkbox
 import androidx.compose.material.FloatingActionButton
 import androidx.compose.material.Icon
@@ -43,9 +48,15 @@ import androidx.compose.material.rememberScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -55,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.ExperimentalLifecycleComposeApi
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.example.android.architecture.blueprints.todoapp.R
 import com.example.android.architecture.blueprints.todoapp.data.Task
 import com.example.android.architecture.blueprints.todoapp.tasks.TasksFilterType.ACTIVE_TASKS
@@ -62,7 +74,14 @@ import com.example.android.architecture.blueprints.todoapp.tasks.TasksFilterType
 import com.example.android.architecture.blueprints.todoapp.tasks.TasksFilterType.COMPLETED_TASKS
 import com.example.android.architecture.blueprints.todoapp.util.LoadingContent
 import com.example.android.architecture.blueprints.todoapp.util.TasksTopAppBar
+import com.example.android.architecture.blueprints.todoapp.util.Util
 import com.google.accompanist.appcompattheme.AppCompatTheme
+import com.google.accompanist.pager.ExperimentalPagerApi
+import com.google.accompanist.pager.HorizontalPager
+import com.google.accompanist.pager.HorizontalPagerIndicator
+import com.google.accompanist.pager.rememberPagerState
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLifecycleComposeApi::class)
 @Composable
@@ -76,6 +95,10 @@ fun TasksScreen(
     viewModel: TasksViewModel = hiltViewModel(),
     scaffoldState: ScaffoldState = rememberScaffoldState()
 ) {
+    val bannerUrls by remember {
+        mutableStateOf(Util.getBannerUrlList())
+    }
+
     Scaffold(
         scaffoldState = scaffoldState,
         topBar = {
@@ -88,6 +111,10 @@ fun TasksScreen(
                 onRefresh = { viewModel.refresh() }
             )
         },
+        bottomBar = {
+            // Adding it in Bottom bar because it's not a part of the main content as well as its getting behind the FAB
+            BannerCarousel(bannerImages = bannerUrls)
+        },
         modifier = modifier.fillMaxSize(),
         floatingActionButton = {
             FloatingActionButton(onClick = onAddTask) {
@@ -96,6 +123,7 @@ fun TasksScreen(
         }
     ) { paddingValues ->
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
 
         TasksContent(
             loading = uiState.isLoading,
@@ -129,6 +157,60 @@ fun TasksScreen(
     }
 }
 
+@OptIn(ExperimentalPagerApi::class)
+@Composable
+fun BannerCarousel(bannerImages: List<String>, modifier: Modifier = Modifier) {
+    val pagerState = rememberPagerState()
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(pagerState.currentPage) {
+        while (true) {
+            delay(2000)
+            coroutineScope.launch {
+                val nextPage = (pagerState.currentPage + 1) % bannerImages.size
+                pagerState.animateScrollToPage(nextPage)
+            }
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .wrapContentHeight()
+    ) {
+        HorizontalPager(
+            count = bannerImages.size,
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth()
+        ) { page ->
+            AsyncImage(
+                model = bannerImages[page],
+                contentDescription = "Banner Image",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .padding(horizontal = 16.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.LightGray)
+            )
+        }
+
+        HorizontalPagerIndicator(
+            pagerState = pagerState,
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(8.dp),
+            activeColor = Color.Gray,
+            inactiveColor = Color.LightGray,
+            indicatorWidth = 6.dp,
+            indicatorHeight = 6.dp,
+        )
+    }
+}
+
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TasksContent(
     loading: Boolean,
@@ -163,6 +245,7 @@ private fun TasksContent(
             LazyColumn {
                 items(tasks) { task ->
                     TaskItem(
+                        modifier = Modifier.animateItemPlacement(),
                         task = task,
                         onTaskClick = onTaskClick,
                         onCheckedChange = { onTaskCheckedChange(task, it) }
@@ -175,6 +258,7 @@ private fun TasksContent(
 
 @Composable
 private fun TaskItem(
+    modifier: Modifier = Modifier,
     task: Task,
     onCheckedChange: (Boolean) -> Unit,
     onTaskClick: (Task) -> Unit
@@ -188,6 +272,7 @@ private fun TaskItem(
                 vertical = dimensionResource(id = R.dimen.list_item_padding),
             )
             .clickable { onTaskClick(task) }
+            .then(modifier)
     ) {
         Checkbox(
             checked = task.isCompleted,
